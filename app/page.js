@@ -75,7 +75,7 @@ function getMonthGrid(year, month) {
 }
 
 const TODAY_STR  = toDateStr(new Date());
-const EMPTY_FORM = { task_name: "", start_time: "09:00", end_time: "10:00", priority: "medium" };
+const EMPTY_FORM = { task_name: "", date: TODAY_STR, start_time: "09:00", end_time: "10:00", priority: "medium" };
 
 export default function ScheduleDashboard() {
   const [events, setEvents]           = useState([]);
@@ -172,13 +172,13 @@ export default function ScheduleDashboard() {
       is_fixed:   false,
       tags:       [],
       notes:      "",
-      date:       TODAY_STR,
+      date:       form.date,
     };
     const { error } = await supabase.from("tasks").insert(newEvent);
     if (error) { setFormError("저장에 실패했어요. 다시 시도해주세요."); return; }
     const sort = (arr) => [...arr].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
-    setEvents(prev => sort([...prev, newEvent]));
-    setEventsByDate(prev => ({ ...prev, [TODAY_STR]: sort([...(prev[TODAY_STR] || []), newEvent]) }));
+    if (form.date === TODAY_STR) setEvents(prev => sort([...prev, newEvent]));
+    setEventsByDate(prev => ({ ...prev, [form.date]: sort([...(prev[form.date] || []), newEvent]) }));
     closeModal();
   }
 
@@ -645,6 +645,11 @@ export default function ScheduleDashboard() {
                 <input className="field-input" placeholder="예) 알고리즘 스터디" value={form.task_name}
                   onChange={e => setForm(f => ({ ...f, task_name: e.target.value }))}
                   onKeyDown={e => { if (e.key === "Enter") handleAdd(); }} autoFocus />
+              </div>
+              <div>
+                <div className="field-label">날짜</div>
+                <input className="field-input" type="date" value={form.date}
+                  onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
