@@ -39,7 +39,6 @@ function pct(t) {
 }
 
 function toDateStr(date) {
-  // "YYYY-MM-DD" in local time
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
@@ -78,30 +77,29 @@ const TODAY_STR  = toDateStr(new Date());
 const EMPTY_FORM = { task_name: "", date: TODAY_STR, start_time: "09:00", end_time: "10:00", priority: "medium" };
 
 export default function ScheduleDashboard() {
-  const [events, setEvents]           = useState([]);
+  const [events, setEvents]             = useState([]);
   const [eventsByDate, setEventsByDate] = useState({});
-  const [dbLoading, setDbLoading]     = useState(true);
-  const [input, setInput]             = useState("");
-  const [aiLoading, setAiLoading]     = useState(false);
-  const [aiMsg, setAiMsg]             = useState("");
-  const [selected, setSelected]       = useState(null);
-  const [showModal, setShowModal]     = useState(false);
-  const [form, setForm]               = useState(EMPTY_FORM);
-  const [formError, setFormError]     = useState("");
-  const [view, setView]               = useState("today");
+  const [dbLoading, setDbLoading]       = useState(true);
+  const [input, setInput]               = useState("");
+  const [aiLoading, setAiLoading]       = useState(false);
+  const [aiMsg, setAiMsg]               = useState("");
+  const [selected, setSelected]         = useState(null);
+  const [showModal, setShowModal]       = useState(false);
+  const [form, setForm]                 = useState(EMPTY_FORM);
+  const [formError, setFormError]       = useState("");
+  const [view, setView]                 = useState("today");
   const [selectedDate, setSelectedDate] = useState(TODAY_STR);
   const _today = new Date();
-  const [calYear, setCalYear]         = useState(_today.getFullYear());
-  const [calMonth, setCalMonth]       = useState(_today.getMonth());
+  const [calYear, setCalYear]           = useState(_today.getFullYear());
+  const [calMonth, setCalMonth]         = useState(_today.getMonth());
 
-  const now      = getNow();
-  const nowPct   = pct(`${String(Math.floor(now / 60)).padStart(2,"0")}:${String(now % 60).padStart(2,"0")}`);
-  const completed = events.filter(e => timeToMinutes(e.end_time) < now).length;
-  const upcoming  = events.find(e => timeToMinutes(e.start_time) > now);
-  const current   = events.find(e => timeToMinutes(e.start_time) <= now && timeToMinutes(e.end_time) > now);
-  const completedPct = events.length > 0 ? (completed / events.length) * 100 : 0;
+  const now           = getNow();
+  const nowPct        = pct(`${String(Math.floor(now / 60)).padStart(2,"0")}:${String(now % 60).padStart(2,"0")}`);
+  const completed     = events.filter(e => timeToMinutes(e.end_time) < now).length;
+  const upcoming      = events.find(e => timeToMinutes(e.start_time) > now);
+  const current       = events.find(e => timeToMinutes(e.start_time) <= now && timeToMinutes(e.end_time) > now);
+  const completedPct  = events.length > 0 ? (completed / events.length) * 100 : 0;
 
-  // ── DB load ──────────────────────────────────────────────
   useEffect(() => { loadEventsForDate(selectedDate); }, [selectedDate]);
 
   useEffect(() => {
@@ -157,13 +155,11 @@ export default function ScheduleDashboard() {
     return eventsByDate[toDateStr(date)] || [];
   }
 
-  // ── Navigation ───────────────────────────────────────────
   function goToDay(date) {
     setSelectedDate(toDateStr(date));
     setView("today");
   }
 
-  // ── CRUD ─────────────────────────────────────────────────
   function openModal()  { setForm({ ...EMPTY_FORM, date: selectedDate }); setFormError(""); setShowModal(true); }
   function closeModal() { setShowModal(false); setFormError(""); }
 
@@ -229,12 +225,12 @@ export default function ScheduleDashboard() {
     setAiLoading(false); setInput("");
   }
 
-  // ── Render ───────────────────────────────────────────────
   return (
     <div style={{ minHeight: "100vh", background: "#FAFAF8", fontFamily: "'DM Sans', 'Pretendard', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=DM+Serif+Display:ital@0;1&display=swap');
         * { box-sizing: border-box; } body { margin: 0; }
+        button, input, textarea, select { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         .event-row { transition: all 0.18s ease; cursor: pointer; }
         .event-row:hover { background: #F5F4F0 !important; transform: translateX(2px); }
         .event-row.selected { background: #F0EFEB !important; }
@@ -250,11 +246,11 @@ export default function ScheduleDashboard() {
         .fade-in { animation: fadeIn 0.4s ease; }
         @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
         .modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:100;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s ease; }
-        .modal-box { background:#FAFAF8;border-radius:20px;padding:28px;width:420px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.18);animation:fadeIn 0.25s ease; }
+        .modal-box { background:#FAFAF8;border-radius:20px;padding:28px;width:420px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,0.18);animation:fadeIn 0.25s ease; }
         .field-label { font-size:11px;font-weight:600;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px; }
         .field-input { width:100%;padding:10px 12px;border:1.5px solid #EDECEA;border-radius:10px;font-size:14px;font-family:inherit;color:#2D2D2B;background:#FFFFFF;outline:none;transition:border-color 0.15s; }
         .field-input:focus { border-color:#7C5FF0; }
-        .delete-btn { opacity:0;transition:opacity 0.15s,color 0.15s;background:none;border:none;cursor:pointer;color:#C0BEB8;font-size:16px;padding:2px 4px;line-height:1;flex-shrink:0; }
+        .delete-btn { opacity:0;transition:opacity 0.15s,color 0.15s;background:none;border:none;cursor:pointer;color:#C0BEB8;font-size:18px;padding:4px 6px;line-height:1;flex-shrink:0; }
         .event-row:hover .delete-btn { opacity:1; }
         .delete-btn:hover { color:#E8543A !important; }
         .add-btn { transition:all 0.15s;cursor:pointer; }
@@ -283,15 +279,66 @@ export default function ScheduleDashboard() {
         @keyframes spin { to{transform:rotate(360deg)} }
         .spinner { width:11px;height:11px;border:1.5px solid #4A4A48;border-top-color:#9CA3AF;border-radius:50%;animation:spin 0.7s linear infinite; }
         .empty-state { text-align:center;padding:48px 0;color:#B0AFA8;font-size:14px; }
+
+        /* ── Responsive layout ── */
+        .header-wrap { background:#2D2D2B;padding:28px 32px 24px;display:flex;align-items:flex-end;justify-content:space-between; }
+        .header-title { font-family:'DM Serif Display',serif;font-size:28px;color:#FAFAF8;letter-spacing:-0.5px;line-height:1.2; }
+        .header-meta { font-size:13px;color:#9CA3AF;margin-top:4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap; }
+        .header-stats { display:flex;gap:20px;align-items:flex-end; }
+        .header-stat-val { font-size:22px;font-weight:600;color:#FAFAF8;line-height:1; }
+        .tabs-wrap { max-width:1100px;margin:0 auto;padding:20px 24px 0; }
+        .tabs-bar { display:flex;gap:2px;background:#EDECEA;border-radius:10px;padding:3px;width:fit-content; }
+        .today-grid { display:grid;grid-template-columns:1fr 340px;gap:0;max-width:1100px;margin:0 auto;padding:24px; }
+        .today-left { padding-right:24px; }
+        .today-right { display:flex;flex-direction:column;gap:16px; }
+        .timeline-labels { display:flex;justify-content:space-between;font-size:10px;color:#C0BEB8;margin-bottom:6px; }
+        .event-time-col { width:80px;flex-shrink:0;padding-right:14px; }
+        .week-scroll { width:100%; }
+        .week-grid-inner { display:grid;grid-template-columns:repeat(7,1fr);gap:8px; }
+
+        @media (max-width: 640px) {
+          .header-wrap { padding:18px 16px 16px;flex-wrap:wrap;gap:12px;align-items:flex-start; }
+          .header-title { font-size:22px !important; }
+          .header-meta { font-size:12px;gap:6px; }
+          .header-stats { gap:14px;flex-wrap:wrap; }
+          .header-stat-val { font-size:18px !important; }
+          .tabs-wrap { padding:14px 16px 0 !important; }
+          .tabs-bar { width:100% !important; }
+          .tab-btn { flex:1 !important;padding:8px 4px !important;font-size:13px !important;text-align:center; }
+          .today-grid { grid-template-columns:1fr !important;padding:16px !important;gap:20px !important; }
+          .today-left { padding-right:0 !important; }
+          .timeline-labels span:nth-child(2),
+          .timeline-labels span:nth-child(4),
+          .timeline-labels span:nth-child(6) { display:none; }
+          .event-time-col { width:62px !important;padding-right:10px !important; }
+          .delete-btn { opacity:1 !important;font-size:20px !important; }
+          .drag-handle { opacity:0.35 !important; }
+          .week-scroll { overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px; }
+          .week-grid-inner { min-width:560px; }
+          .week-col { min-height:120px !important;padding:10px 8px !important; }
+          .month-cell { min-height:58px !important;padding:6px 4px !important; }
+          .modal-overlay { align-items:flex-end !important; }
+          .modal-box { width:100% !important;max-width:100vw !important;border-radius:20px 20px 0 0 !important;padding:24px 20px 36px !important; }
+          .db-badge { display:none !important; }
+          .empty-state { padding:32px 0; }
+        }
+
+        @media (max-width: 400px) {
+          .header-title { font-size:20px !important; }
+          .header-stats { gap:10px; }
+          .header-stat-val { font-size:16px !important; }
+          .event-time-col { width:56px !important;padding-right:8px !important; }
+          .month-cell { min-height:48px !important;padding:4px 2px !important; }
+        }
       `}</style>
 
       {/* Header */}
-      <div style={{ background: "#2D2D2B", padding: "28px 32px 24px", display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+      <div className="header-wrap">
         <div>
-          <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 28, color: "#FAFAF8", letterSpacing: "-0.5px", lineHeight: 1.2 }}>
+          <div className="header-title">
             {selectedDate === TODAY_STR ? "오늘의 스케줄" : "일간 스케줄"}
           </div>
-          <div style={{ fontSize: 13, color: "#9CA3AF", marginTop: 4, display: "flex", alignItems: "center", gap: 10 }}>
+          <div className="header-meta">
             {new Date(selectedDate + "T00:00:00").toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "long" })}
             {selectedDate !== TODAY_STR && (
               <button onClick={() => setSelectedDate(TODAY_STR)} style={{ background: "#3A3A38", border: "none", borderRadius: 6, color: "#B0AFA8", fontSize: 11, padding: "3px 10px", cursor: "pointer", fontFamily: "inherit" }}>
@@ -309,14 +356,14 @@ export default function ScheduleDashboard() {
             </span>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 20, alignItems: "flex-end" }}>
+        <div className="header-stats">
           {[
             { label: "전체", val: events.length },
             { label: "완료", val: completed },
             { label: "남음", val: events.length - completed },
           ].map(s => (
             <div key={s.label} style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 22, fontWeight: 600, color: "#FAFAF8", lineHeight: 1 }}>{s.val}</div>
+              <div className="header-stat-val">{s.val}</div>
               <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>{s.label}</div>
             </div>
           ))}
@@ -334,8 +381,8 @@ export default function ScheduleDashboard() {
       </div>
 
       {/* Tabs */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 24px 0" }}>
-        <div style={{ display: "flex", gap: 2, background: "#EDECEA", borderRadius: 10, padding: 3, width: "fit-content" }}>
+      <div className="tabs-wrap">
+        <div className="tabs-bar">
           {[["today","오늘"], ["week","주간"], ["month","월간"]].map(([v, label]) => (
             <button key={v} className="tab-btn" onClick={() => setView(v)} style={{
               padding: "7px 20px", borderRadius: 8, border: "none",
@@ -349,12 +396,12 @@ export default function ScheduleDashboard() {
 
       {/* ── Today View ── */}
       {view === "today" && (
-        <div className="view-enter" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 0, maxWidth: 1100, margin: "0 auto", padding: "24px 24px" }}>
+        <div className="view-enter today-grid">
 
           {/* Left */}
-          <div style={{ paddingRight: 24 }}>
+          <div className="today-left">
 
-            {/* Current / Next card — today only */}
+            {/* Current / Next card */}
             {!dbLoading && selectedDate === TODAY_STR && (current || upcoming) && (
               <div className="fade-in" style={{ marginBottom: 20, padding: "16px 20px", background: current ? "#2D2D2B" : "#F5F4F0", borderRadius: 14, display: "flex", alignItems: "center", gap: 16 }}>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: current ? "#4ADE80" : "#9CA3AF", flexShrink: 0 }} className={current ? "pulse" : ""} />
@@ -371,7 +418,7 @@ export default function ScheduleDashboard() {
             {/* Mini timeline bar */}
             {!dbLoading && events.length > 0 && (
               <div style={{ marginBottom: 20, position: "relative" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#C0BEB8", marginBottom: 6 }}>
+                <div className="timeline-labels">
                   {["08:00","10:00","12:00","14:00","16:00","18:00","20:00","22:00"].map(h => <span key={h}>{h}</span>)}
                 </div>
                 <div style={{ height: 6, background: "#EDECEA", borderRadius: 3, position: "relative", overflow: "visible" }}>
@@ -406,7 +453,7 @@ export default function ScheduleDashboard() {
             {/* Empty state */}
             {!dbLoading && events.length === 0 && (
               <div className="empty-state">
-                오늘 일정이 없어요.<br />
+                일정이 없어요.<br />
                 <span style={{ fontSize: 12, color: "#C0BEB8" }}>+ 버튼을 눌러 추가해보세요.</span>
               </div>
             )}
@@ -418,10 +465,10 @@ export default function ScheduleDashboard() {
                   {(provided) => (
                     <div ref={provided.innerRef} {...provided.droppableProps} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                       {events.map((e, i) => {
-                        const cfg     = PRIORITY_CONFIG[e.priority];
-                        const isDone  = timeToMinutes(e.end_time) < now;
+                        const cfg      = PRIORITY_CONFIG[e.priority];
+                        const isDone   = timeToMinutes(e.end_time) < now;
                         const isActive = timeToMinutes(e.start_time) <= now && !isDone;
-                        const isSel   = selected === e.task_id;
+                        const isSel    = selected === e.task_id;
                         return (
                           <Draggable key={e.task_id} draggableId={e.task_id} index={i} isDragDisabled={e.is_fixed}>
                             {(provided, snapshot) => (
@@ -431,7 +478,7 @@ export default function ScheduleDashboard() {
                                 className={`event-row${isSel ? " selected" : ""}${snapshot.isDragging ? " dragging" : ""}`}
                                 onClick={() => setSelected(isSel ? null : e.task_id)}
                                 style={{
-                                  display: "flex", alignItems: "stretch", borderRadius: 10, padding: "10px 14px",
+                                  display: "flex", alignItems: "stretch", borderRadius: 10, padding: "10px 12px",
                                   background: snapshot.isDragging ? "#F0EFEB" : isSel ? "#F0EFEB" : "transparent",
                                   opacity: isDone ? 0.45 : 1,
                                   ...provided.draggableProps.style,
@@ -441,19 +488,19 @@ export default function ScheduleDashboard() {
                                   ? <div className="drag-fixed-icon">🔒</div>
                                   : <div className="drag-handle" {...provided.dragHandleProps} onClick={ev => ev.stopPropagation()}>⠿</div>
                                 }
-                                <div style={{ width: 80, flexShrink: 0, paddingRight: 14 }}>
+                                <div className="event-time-col">
                                   <div style={{ fontSize: 13, fontWeight: 500, color: "#2D2D2B", fontVariantNumeric: "tabular-nums" }}>{e.start_time}</div>
                                   <div style={{ fontSize: 11, color: "#B0AFA8", marginTop: 1 }}>{e.end_time}</div>
                                 </div>
                                 <div style={{ width: 3, borderRadius: 2, background: isDone ? "#DDDCDA" : cfg.color, opacity: isDone ? 0.5 : 1, flexShrink: 0, marginRight: 12, alignSelf: "stretch" }} />
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                                     <span style={{ fontSize: 14, fontWeight: isActive ? 600 : 500, color: isDone ? "#B0AFA8" : "#2D2D2B" }}>
                                       {isDone ? "✓ " : ""}{e.task_name}
                                     </span>
                                     {e.is_fixed && <span style={{ fontSize: 10, background: "#FEF3C7", color: "#92400E", padding: "1px 6px", borderRadius: 4, fontWeight: 600 }}>고정</span>}
                                   </div>
-                                  <div style={{ display: "flex", gap: 4, marginTop: 5, flexWrap: "wrap" }}>
+                                  <div style={{ display: "flex", gap: 4, marginTop: 5, flexWrap: "wrap", alignItems: "center" }}>
                                     {(e.tags || []).map(t => {
                                       const tc = TAG_COLORS[t] || { bg: "#F3F4F6", color: "#6B7280" };
                                       return <span key={t} className="tag-pill" style={{ background: tc.bg, color: tc.color }}>{t}</span>;
@@ -466,8 +513,8 @@ export default function ScheduleDashboard() {
                                     </div>
                                   )}
                                 </div>
-                                <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, paddingLeft: 12 }}>
-                                  <div style={{ fontSize: 11, color: "#C0BEB8", marginTop: 2 }}>
+                                <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, paddingLeft: 8 }}>
+                                  <div style={{ fontSize: 11, color: "#C0BEB8", marginTop: 2, whiteSpace: "nowrap" }}>
                                     {timeToMinutes(e.end_time) - timeToMinutes(e.start_time)}분
                                   </div>
                                   {!e.is_fixed && (
@@ -488,7 +535,7 @@ export default function ScheduleDashboard() {
           </div>
 
           {/* Right Panel */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="today-right">
 
             {/* AI Input */}
             <div style={{ background: "#2D2D2B", borderRadius: 16, padding: "20px" }}>
@@ -565,43 +612,45 @@ export default function ScheduleDashboard() {
       {/* ── Week View ── */}
       {view === "week" && (
         <div className="view-enter" style={{ maxWidth: 1100, margin: "0 auto", padding: "24px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8 }}>
-            {getWeekDays().map((day, i) => {
-              const dateStr   = toDateStr(day);
-              const isToday   = isSameDay(day, new Date());
-              const isSel     = dateStr === selectedDate;
-              const isDark    = isToday || isSel;
-              const dayEvents = getEventsForDay(day);
-              return (
-                <div key={i} className="week-col" onClick={() => goToDay(day)} style={{
-                  background: isDark ? "#2D2D2B" : "#FFFFFF",
-                  border: `1px solid ${isDark ? "transparent" : "#EDECEA"}`,
-                  outline: isSel && !isToday ? "2px solid #7C5FF0" : "none",
-                  outlineOffset: -1,
-                }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: isDark ? "#9CA3AF" : "#B0AFA8", letterSpacing: "0.04em" }}>{DAY_NAMES[i]}</div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: isDark ? "#FAFAF8" : "#2D2D2B", marginTop: 2, marginBottom: 14, lineHeight: 1 }}>{day.getDate()}</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {dayEvents.map(e => {
-                      const cfg = PRIORITY_CONFIG[e.priority];
-                      return (
-                        <div key={e.task_id} style={{
-                          fontSize: 11, padding: "4px 8px", borderRadius: 6, lineHeight: 1.4,
-                          background: isDark ? "#3A3A38" : cfg.bg,
-                          color: isDark ? "#E8E8E4" : cfg.color,
-                          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                        }}>
-                          <span style={{ opacity: 0.7 }}>{e.start_time}</span> {e.task_name}
-                        </div>
-                      );
-                    })}
-                    {dayEvents.length === 0 && (
-                      <div style={{ fontSize: 12, color: isDark ? "#4A4A48" : "#DDDCDA" }}>—</div>
-                    )}
+          <div className="week-scroll">
+            <div className="week-grid-inner">
+              {getWeekDays().map((day, i) => {
+                const dateStr   = toDateStr(day);
+                const isToday   = isSameDay(day, new Date());
+                const isSel     = dateStr === selectedDate;
+                const isDark    = isToday || isSel;
+                const dayEvents = getEventsForDay(day);
+                return (
+                  <div key={i} className="week-col" onClick={() => goToDay(day)} style={{
+                    background: isDark ? "#2D2D2B" : "#FFFFFF",
+                    border: `1px solid ${isDark ? "transparent" : "#EDECEA"}`,
+                    outline: isSel && !isToday ? "2px solid #7C5FF0" : "none",
+                    outlineOffset: -1,
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: isDark ? "#9CA3AF" : "#B0AFA8", letterSpacing: "0.04em" }}>{DAY_NAMES[i]}</div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: isDark ? "#FAFAF8" : "#2D2D2B", marginTop: 2, marginBottom: 14, lineHeight: 1 }}>{day.getDate()}</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {dayEvents.map(e => {
+                        const cfg = PRIORITY_CONFIG[e.priority];
+                        return (
+                          <div key={e.task_id} style={{
+                            fontSize: 11, padding: "4px 8px", borderRadius: 6, lineHeight: 1.4,
+                            background: isDark ? "#3A3A38" : cfg.bg,
+                            color: isDark ? "#E8E8E4" : cfg.color,
+                            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                          }}>
+                            <span style={{ opacity: 0.7 }}>{e.start_time}</span> {e.task_name}
+                          </div>
+                        );
+                      })}
+                      {dayEvents.length === 0 && (
+                        <div style={{ fontSize: 12, color: isDark ? "#4A4A48" : "#DDDCDA" }}>—</div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -638,13 +687,13 @@ export default function ScheduleDashboard() {
                       outline: isSel && !isToday ? "2px solid #7C5FF0" : "none",
                       outlineOffset: -1,
                     }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1, color: isDark ? "#FAFAF8" : "#2D2D2B", marginBottom: 8 }}>{day.getDate()}</div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1, color: isDark ? "#FAFAF8" : "#2D2D2B", marginBottom: 6 }}>{day.getDate()}</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                         {dayEvents.slice(0, 3).map(e => {
                           const cfg = PRIORITY_CONFIG[e.priority];
                           return (
                             <div key={e.task_id} style={{
-                              fontSize: 10, padding: "2px 6px", borderRadius: 4, lineHeight: 1.5,
+                              fontSize: 10, padding: "2px 5px", borderRadius: 4, lineHeight: 1.5,
                               background: isDark ? "#3A3A38" : cfg.bg,
                               color: isDark ? "#E8E8E4" : cfg.color,
                               whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
@@ -652,7 +701,7 @@ export default function ScheduleDashboard() {
                           );
                         })}
                         {dayEvents.length > 3 && (
-                          <div style={{ fontSize: 10, color: isDark ? "#9CA3AF" : "#B0AFA8", paddingLeft: 2 }}>+{dayEvents.length - 3}개 더</div>
+                          <div style={{ fontSize: 10, color: isDark ? "#9CA3AF" : "#B0AFA8", paddingLeft: 2 }}>+{dayEvents.length - 3}개</div>
                         )}
                       </div>
                     </div>
@@ -670,7 +719,7 @@ export default function ScheduleDashboard() {
           <div className="modal-box" onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22 }}>
               <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20, color: "#2D2D2B" }}>새 일정 추가</div>
-              <button onClick={closeModal} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: "#B0AFA8", lineHeight: 1 }}>×</button>
+              <button onClick={closeModal} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 24, color: "#B0AFA8", lineHeight: 1, padding: "4px 8px" }}>×</button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
@@ -712,10 +761,10 @@ export default function ScheduleDashboard() {
                 <div style={{ fontSize: 12, color: "#E8543A", padding: "8px 12px", background: "#FEF0EC", borderRadius: 8 }}>{formError}</div>
               )}
               <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                <button onClick={closeModal} style={{ flex: 1, padding: "11px", borderRadius: 10, border: "1.5px solid #EDECEA", background: "transparent", fontSize: 14, fontFamily: "inherit", color: "#9CA3AF", cursor: "pointer" }}>
+                <button onClick={closeModal} style={{ flex: 1, padding: "12px", borderRadius: 10, border: "1.5px solid #EDECEA", background: "transparent", fontSize: 14, fontFamily: "inherit", color: "#9CA3AF", cursor: "pointer" }}>
                   취소
                 </button>
-                <button onClick={handleAdd} style={{ flex: 2, padding: "11px", borderRadius: 10, border: "none", background: "#2D2D2B", color: "#FAFAF8", fontSize: 14, fontWeight: 600, fontFamily: "inherit", cursor: "pointer" }}>
+                <button onClick={handleAdd} style={{ flex: 2, padding: "12px", borderRadius: 10, border: "none", background: "#2D2D2B", color: "#FAFAF8", fontSize: 14, fontWeight: 600, fontFamily: "inherit", cursor: "pointer" }}>
                   추가하기
                 </button>
               </div>
