@@ -89,6 +89,7 @@ export default function ScheduleDashboard() {
   const [form, setForm]               = useState(EMPTY_FORM);
   const [formError, setFormError]     = useState("");
   const [view, setView]               = useState("today");
+  const [selectedDate, setSelectedDate] = useState(TODAY_STR);
   const _today = new Date();
   const [calYear, setCalYear]         = useState(_today.getFullYear());
   const [calMonth, setCalMonth]       = useState(_today.getMonth());
@@ -101,7 +102,7 @@ export default function ScheduleDashboard() {
   const completedPct = events.length > 0 ? (completed / events.length) * 100 : 0;
 
   // ── DB load ──────────────────────────────────────────────
-  useEffect(() => { loadEventsForDate(TODAY_STR); }, []);
+  useEffect(() => { loadEventsForDate(selectedDate); }, [selectedDate]);
 
   useEffect(() => {
     if (view === "week") {
@@ -154,8 +155,14 @@ export default function ScheduleDashboard() {
     return eventsByDate[toDateStr(date)] || [];
   }
 
+  // ── Navigation ───────────────────────────────────────────
+  function goToDay(date) {
+    setSelectedDate(toDateStr(date));
+    setView("today");
+  }
+
   // ── CRUD ─────────────────────────────────────────────────
-  function openModal()  { setForm(EMPTY_FORM); setFormError(""); setShowModal(true); }
+  function openModal()  { setForm({ ...EMPTY_FORM, date: selectedDate }); setFormError(""); setShowModal(true); }
   function closeModal() { setShowModal(false); setFormError(""); }
 
   async function handleAdd() {
@@ -177,7 +184,7 @@ export default function ScheduleDashboard() {
     const { error } = await supabase.from("tasks").insert(newEvent);
     if (error) { setFormError("저장에 실패했어요. 다시 시도해주세요."); return; }
     const sort = (arr) => [...arr].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
-    if (form.date === TODAY_STR) setEvents(prev => sort([...prev, newEvent]));
+    if (form.date === selectedDate) setEvents(prev => sort([...prev, newEvent]));
     setEventsByDate(prev => ({ ...prev, [form.date]: sort([...(prev[form.date] || []), newEvent]) }));
     closeModal();
   }
@@ -262,10 +269,10 @@ export default function ScheduleDashboard() {
         .tab-btn { transition:all 0.2s ease;cursor:pointer; }
         .view-enter { animation:viewEnter 0.3s ease; }
         @keyframes viewEnter { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-        .week-col { border-radius:16px;padding:16px 12px;min-height:160px;transition:box-shadow 0.2s; }
-        .week-col:hover { box-shadow:0 4px 16px rgba(0,0,0,0.08); }
-        .month-cell { border-radius:12px;padding:10px;min-height:88px;transition:box-shadow 0.15s; }
-        .month-cell:hover { box-shadow:0 2px 10px rgba(0,0,0,0.07); }
+        .week-col { border-radius:16px;padding:16px 12px;min-height:160px;transition:box-shadow 0.2s,transform 0.15s;cursor:pointer; }
+        .week-col:hover { box-shadow:0 4px 16px rgba(0,0,0,0.10);transform:translateY(-2px); }
+        .month-cell { border-radius:12px;padding:10px;min-height:88px;transition:box-shadow 0.15s;cursor:pointer; }
+        .month-cell:hover { box-shadow:0 2px 10px rgba(0,0,0,0.09); }
         .cal-nav-btn { background:none;border:1.5px solid #EDECEA;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:16px;color:#4A4A48;transition:all 0.15s; }
         .cal-nav-btn:hover { background:#F0EFEB;border-color:#C0BEB8; }
         .db-badge { display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#9CA3AF;padding:3px 10px;border-radius:999px;border:1px solid #3A3A38; }
@@ -278,10 +285,15 @@ export default function ScheduleDashboard() {
       <div style={{ background: "#2D2D2B", padding: "28px 32px 24px", display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
         <div>
           <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 28, color: "#FAFAF8", letterSpacing: "-0.5px", lineHeight: 1.2 }}>
-            오늘의 스케줄
+            {selectedDate === TODAY_STR ? "오늘의 스케줄" : "일간 스케줄"}
           </div>
           <div style={{ fontSize: 13, color: "#9CA3AF", marginTop: 4, display: "flex", alignItems: "center", gap: 10 }}>
-            {new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "long" })}
+            {new Date(selectedDate + "T00:00:00").toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "long" })}
+            {selectedDate !== TODAY_STR && (
+              <button onClick={() => setSelectedDate(TODAY_STR)} style={{ background: "#3A3A38", border: "none", borderRadius: 6, color: "#B0AFA8", fontSize: 11, padding: "3px 10px", cursor: "pointer", fontFamily: "inherit" }}>
+                ← 오늘로
+              </button>
+            )}
             <span className="db-badge">
               {dbLoading ? <span className="spinner" /> : <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ADE80", display: "inline-block" }} />}
               Supabase
@@ -333,8 +345,8 @@ export default function ScheduleDashboard() {
           {/* Left */}
           <div style={{ paddingRight: 24 }}>
 
-            {/* Current / Next card */}
-            {!dbLoading && (current || upcoming) && (
+            {/* Current / Next card — today only */}
+            {!dbLoading && selectedDate === TODAY_STR && (current || upcoming) && (
               <div className="fade-in" style={{ marginBottom: 20, padding: "16px 20px", background: current ? "#2D2D2B" : "#F5F4F0", borderRadius: 14, display: "flex", alignItems: "center", gap: 16 }}>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: current ? "#4ADE80" : "#9CA3AF", flexShrink: 0 }} className={current ? "pulse" : ""} />
                 <div style={{ flex: 1 }}>
@@ -364,9 +376,11 @@ export default function ScheduleDashboard() {
                       }} onClick={() => setSelected(e.task_id === selected ? null : e.task_id)} />
                     );
                   })}
-                  <div className="timeline-thumb" style={{ position: "absolute", top: -4, left: `${nowPct}%`, width: 2, height: 14, background: "#E8543A", borderRadius: 1, transform: "translateX(-50%)" }}>
-                    <div style={{ width: 6, height: 6, background: "#E8543A", borderRadius: "50%", position: "absolute", top: -3, left: -2 }} className="pulse" />
-                  </div>
+                  {selectedDate === TODAY_STR && (
+                    <div className="timeline-thumb" style={{ position: "absolute", top: -4, left: `${nowPct}%`, width: 2, height: 14, background: "#E8543A", borderRadius: 1, transform: "translateX(-50%)" }}>
+                      <div style={{ width: 6, height: 6, background: "#E8543A", borderRadius: "50%", position: "absolute", top: -3, left: -2 }} className="pulse" />
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -544,23 +558,28 @@ export default function ScheduleDashboard() {
         <div className="view-enter" style={{ maxWidth: 1100, margin: "0 auto", padding: "24px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8 }}>
             {getWeekDays().map((day, i) => {
-              const isToday    = isSameDay(day, new Date());
-              const dayEvents  = getEventsForDay(day);
+              const dateStr   = toDateStr(day);
+              const isToday   = isSameDay(day, new Date());
+              const isSel     = dateStr === selectedDate;
+              const isDark    = isToday || isSel;
+              const dayEvents = getEventsForDay(day);
               return (
-                <div key={i} className="week-col" style={{
-                  background: isToday ? "#2D2D2B" : "#FFFFFF",
-                  border: `1px solid ${isToday ? "transparent" : "#EDECEA"}`,
+                <div key={i} className="week-col" onClick={() => goToDay(day)} style={{
+                  background: isDark ? "#2D2D2B" : "#FFFFFF",
+                  border: `1px solid ${isDark ? "transparent" : "#EDECEA"}`,
+                  outline: isSel && !isToday ? "2px solid #7C5FF0" : "none",
+                  outlineOffset: -1,
                 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: isToday ? "#9CA3AF" : "#B0AFA8", letterSpacing: "0.04em" }}>{DAY_NAMES[i]}</div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: isToday ? "#FAFAF8" : "#2D2D2B", marginTop: 2, marginBottom: 14, lineHeight: 1 }}>{day.getDate()}</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: isDark ? "#9CA3AF" : "#B0AFA8", letterSpacing: "0.04em" }}>{DAY_NAMES[i]}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: isDark ? "#FAFAF8" : "#2D2D2B", marginTop: 2, marginBottom: 14, lineHeight: 1 }}>{day.getDate()}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     {dayEvents.map(e => {
                       const cfg = PRIORITY_CONFIG[e.priority];
                       return (
                         <div key={e.task_id} style={{
                           fontSize: 11, padding: "4px 8px", borderRadius: 6, lineHeight: 1.4,
-                          background: isToday ? "#3A3A38" : cfg.bg,
-                          color: isToday ? "#E8E8E4" : cfg.color,
+                          background: isDark ? "#3A3A38" : cfg.bg,
+                          color: isDark ? "#E8E8E4" : cfg.color,
                           whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                         }}>
                           <span style={{ opacity: 0.7 }}>{e.start_time}</span> {e.task_name}
@@ -568,7 +587,7 @@ export default function ScheduleDashboard() {
                       );
                     })}
                     {dayEvents.length === 0 && (
-                      <div style={{ fontSize: 12, color: isToday ? "#4A4A48" : "#DDDCDA" }}>—</div>
+                      <div style={{ fontSize: 12, color: isDark ? "#4A4A48" : "#DDDCDA" }}>—</div>
                     )}
                   </div>
                 </div>
@@ -598,28 +617,33 @@ export default function ScheduleDashboard() {
               <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
                 {week.map((day, di) => {
                   if (!day) return <div key={di} style={{ borderRadius: 12, background: "#F5F4F0", minHeight: 88 }} />;
+                  const dateStr   = toDateStr(day);
                   const isToday   = isSameDay(day, new Date());
+                  const isSel     = dateStr === selectedDate;
+                  const isDark    = isToday || isSel;
                   const dayEvents = getEventsForDay(day);
                   return (
-                    <div key={di} className="month-cell" style={{
-                      background: isToday ? "#2D2D2B" : "#FFFFFF",
-                      border: `1px solid ${isToday ? "transparent" : "#EDECEA"}`,
+                    <div key={di} className="month-cell" onClick={() => goToDay(day)} style={{
+                      background: isDark ? "#2D2D2B" : "#FFFFFF",
+                      border: `1px solid ${isDark ? "transparent" : "#EDECEA"}`,
+                      outline: isSel && !isToday ? "2px solid #7C5FF0" : "none",
+                      outlineOffset: -1,
                     }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1, color: isToday ? "#FAFAF8" : "#2D2D2B", marginBottom: 8 }}>{day.getDate()}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1, color: isDark ? "#FAFAF8" : "#2D2D2B", marginBottom: 8 }}>{day.getDate()}</div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                         {dayEvents.slice(0, 3).map(e => {
                           const cfg = PRIORITY_CONFIG[e.priority];
                           return (
                             <div key={e.task_id} style={{
                               fontSize: 10, padding: "2px 6px", borderRadius: 4, lineHeight: 1.5,
-                              background: isToday ? "#3A3A38" : cfg.bg,
-                              color: isToday ? "#E8E8E4" : cfg.color,
+                              background: isDark ? "#3A3A38" : cfg.bg,
+                              color: isDark ? "#E8E8E4" : cfg.color,
                               whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                             }}>{e.task_name}</div>
                           );
                         })}
                         {dayEvents.length > 3 && (
-                          <div style={{ fontSize: 10, color: isToday ? "#9CA3AF" : "#B0AFA8", paddingLeft: 2 }}>+{dayEvents.length - 3}개 더</div>
+                          <div style={{ fontSize: 10, color: isDark ? "#9CA3AF" : "#B0AFA8", paddingLeft: 2 }}>+{dayEvents.length - 3}개 더</div>
                         )}
                       </div>
                     </div>
