@@ -44,6 +44,36 @@ function pct(t) {
   return Math.max(0, Math.min(100, ((timeToMinutes(t) - DAY_START) / (DAY_END - DAY_START)) * 100));
 }
 
+const DAY_NAMES = ["월", "화", "수", "목", "금", "토", "일"];
+
+function isSameDay(a, b) {
+  return a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+}
+
+function getWeekDays() {
+  const today = new Date();
+  const dow = (today.getDay() + 6) % 7; // 0=월
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - dow + i);
+    return d;
+  });
+}
+
+function getMonthGrid(year, month) {
+  const first = new Date(year, month, 1);
+  const last = new Date(year, month + 1, 0);
+  const startDow = (first.getDay() + 6) % 7;
+  const cells = Array(startDow).fill(null);
+  for (let d = 1; d <= last.getDate(); d++) cells.push(new Date(year, month, d));
+  while (cells.length % 7) cells.push(null);
+  const weeks = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  return weeks;
+}
+
 const EMPTY_FORM = { task_name: "", start_time: "09:00", end_time: "10:00", priority: "medium" };
 
 export default function ScheduleDashboard() {
@@ -55,6 +85,10 @@ export default function ScheduleDashboard() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState("");
+  const [view, setView] = useState("today");
+  const _today = new Date();
+  const [calYear, setCalYear] = useState(_today.getFullYear());
+  const [calMonth, setCalMonth] = useState(_today.getMonth());
   const now = getNow();
   const nowPct = pct(`${String(Math.floor(now / 60)).padStart(2,"0")}:${String(now % 60).padStart(2,"0")}`);
 
@@ -97,6 +131,18 @@ export default function ScheduleDashboard() {
   function handleDelete(taskId) {
     setEvents(prev => prev.filter(e => e.task_id !== taskId));
     if (selected === taskId) setSelected(null);
+  }
+
+  function prevMonth() {
+    if (calMonth === 0) { setCalYear(y => y - 1); setCalMonth(11); }
+    else setCalMonth(m => m - 1);
+  }
+  function nextMonth() {
+    if (calMonth === 11) { setCalYear(y => y + 1); setCalMonth(0); }
+    else setCalMonth(m => m + 1);
+  }
+  function getEventsForDay(date) {
+    return isSameDay(date, new Date()) ? events : [];
   }
 
   function onDragEnd(result) {
@@ -163,6 +209,15 @@ export default function ScheduleDashboard() {
         .event-row:hover .drag-handle { opacity:1; }
         .drag-fixed-icon { color:#DDDCDA;padding:0 8px 0 0;font-size:12px;flex-shrink:0;display:flex;align-items:center; }
         .event-row.dragging { background:#F0EFEB !important;box-shadow:0 8px 24px rgba(0,0,0,0.10);border-radius:10px;transform:none !important; }
+        .tab-btn { transition:all 0.2s ease;cursor:pointer; }
+        .view-enter { animation:viewEnter 0.3s ease; }
+        @keyframes viewEnter { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        .week-col { border-radius:16px;padding:16px 12px;min-height:160px;transition:box-shadow 0.2s; }
+        .week-col:hover { box-shadow:0 4px 16px rgba(0,0,0,0.08); }
+        .month-cell { border-radius:12px;padding:10px;min-height:88px;transition:box-shadow 0.15s;cursor:default; }
+        .month-cell:hover { box-shadow:0 2px 10px rgba(0,0,0,0.07); }
+        .cal-nav-btn { background:none;border:1.5px solid #EDECEA;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:16px;color:#4A4A48;transition:all 0.15s; }
+        .cal-nav-btn:hover { background:#F0EFEB;border-color:#C0BEB8; }
       `}</style>
 
       {/* Header */}
@@ -199,6 +254,22 @@ export default function ScheduleDashboard() {
         <div style={{ height: "100%", width: `${(completed / events.length) * 100}%`, background: "linear-gradient(90deg, #7C5FF0, #E8543A)", transition: "width 0.6s ease" }} />
       </div>
 
+      {/* Tabs */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 24px 0" }}>
+        <div style={{ display: "flex", gap: 2, background: "#EDECEA", borderRadius: 10, padding: 3, width: "fit-content" }}>
+          {[["today","오늘"], ["week","주간"], ["month","월간"]].map(([v, label]) => (
+            <button key={v} className="tab-btn" onClick={() => setView(v)} style={{
+              padding: "7px 20px", borderRadius: 8, border: "none",
+              background: view === v ? "#2D2D2B" : "transparent",
+              color: view === v ? "#FAFAF8" : "#9CA3AF",
+              fontSize: 13, fontWeight: view === v ? 600 : 400, fontFamily: "inherit",
+            }}>{label}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Today View */}
+      {view === "today" && (
       <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 0, maxWidth: 1100, margin: "0 auto", padding: "24px 24px" }}>
 
         {/* Left: Timeline + List */}
@@ -420,6 +491,118 @@ export default function ScheduleDashboard() {
           </div>
         </div>
       </div>
+      )} {/* end Today View */}
+
+      {/* Week View */}
+      {view === "week" && (
+        <div className="view-enter" style={{ maxWidth: 1100, margin: "0 auto", padding: "24px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8 }}>
+            {getWeekDays().map((day, i) => {
+              const isToday = isSameDay(day, new Date());
+              const dayEvents = getEventsForDay(day);
+              return (
+                <div key={i} className="week-col" style={{
+                  background: isToday ? "#2D2D2B" : "#FFFFFF",
+                  border: `1px solid ${isToday ? "transparent" : "#EDECEA"}`,
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: isToday ? "#9CA3AF" : "#B0AFA8", letterSpacing: "0.04em" }}>
+                    {DAY_NAMES[i]}
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: isToday ? "#FAFAF8" : "#2D2D2B", marginTop: 2, marginBottom: 14, lineHeight: 1 }}>
+                    {day.getDate()}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {dayEvents.map(e => {
+                      const cfg = PRIORITY_CONFIG[e.priority];
+                      return (
+                        <div key={e.task_id} style={{
+                          fontSize: 11, padding: "4px 8px", borderRadius: 6, lineHeight: 1.4,
+                          background: isToday ? "#3A3A38" : cfg.bg,
+                          color: isToday ? "#E8E8E4" : cfg.color,
+                          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                        }}>
+                          <span style={{ opacity: 0.7 }}>{e.start_time}</span> {e.task_name}
+                        </div>
+                      );
+                    })}
+                    {dayEvents.length === 0 && (
+                      <div style={{ fontSize: 12, color: isToday ? "#4A4A48" : "#DDDCDA" }}>—</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Month View */}
+      {view === "month" && (
+        <div className="view-enter" style={{ maxWidth: 1100, margin: "0 auto", padding: "24px" }}>
+          {/* Month navigation */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+            <button className="cal-nav-btn" onClick={prevMonth}>←</button>
+            <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 22, color: "#2D2D2B" }}>
+              {calYear}년 {calMonth + 1}월
+            </div>
+            <button className="cal-nav-btn" onClick={nextMonth}>→</button>
+          </div>
+
+          {/* Day headers */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 4 }}>
+            {DAY_NAMES.map(d => (
+              <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, color: "#B0AFA8", padding: "6px 0" }}>{d}</div>
+            ))}
+          </div>
+
+          {/* Calendar grid */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {getMonthGrid(calYear, calMonth).map((week, wi) => (
+              <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+                {week.map((day, di) => {
+                  if (!day) return (
+                    <div key={di} style={{ borderRadius: 12, background: "#F5F4F0", minHeight: 88 }} />
+                  );
+                  const isToday = isSameDay(day, new Date());
+                  const dayEvents = getEventsForDay(day);
+                  return (
+                    <div key={di} className="month-cell" style={{
+                      background: isToday ? "#2D2D2B" : "#FFFFFF",
+                      border: `1px solid ${isToday ? "transparent" : "#EDECEA"}`,
+                    }}>
+                      <div style={{
+                        fontSize: 13, fontWeight: 600, lineHeight: 1,
+                        color: isToday ? "#FAFAF8" : "#2D2D2B",
+                        marginBottom: 8,
+                      }}>{day.getDate()}</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                        {dayEvents.slice(0, 3).map(e => {
+                          const cfg = PRIORITY_CONFIG[e.priority];
+                          return (
+                            <div key={e.task_id} style={{
+                              fontSize: 10, padding: "2px 6px", borderRadius: 4, lineHeight: 1.5,
+                              background: isToday ? "#3A3A38" : cfg.bg,
+                              color: isToday ? "#E8E8E4" : cfg.color,
+                              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                            }}>
+                              {e.task_name}
+                            </div>
+                          );
+                        })}
+                        {dayEvents.length > 3 && (
+                          <div style={{ fontSize: 10, color: isToday ? "#9CA3AF" : "#B0AFA8", paddingLeft: 2 }}>
+                            +{dayEvents.length - 3}개 더
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Add Event Modal */}
       {showModal && (
