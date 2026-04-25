@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 const SCHEDULE = [
   { task_id: "evt-001", task_name: "확률과 통계 강의", start_time: "09:00", end_time: "10:30", priority: "urgent", is_fixed: true, tags: ["lecture"], notes: "강의실 B304" },
@@ -98,6 +99,15 @@ export default function ScheduleDashboard() {
     if (selected === taskId) setSelected(null);
   }
 
+  function onDragEnd(result) {
+    if (!result.destination) return;
+    if (result.source.index === result.destination.index) return;
+    const reordered = Array.from(events);
+    const [moved] = reordered.splice(result.source.index, 1);
+    reordered.splice(result.destination.index, 0, moved);
+    setEvents(reordered);
+  }
+
   async function handleAI() {
     if (!input.trim()) return;
     setLoading(true);
@@ -148,6 +158,11 @@ export default function ScheduleDashboard() {
         .priority-radio label:hover { border-color:#C0BEB8; }
         .priority-radio input { display:none; }
         .priority-radio input:checked + span { font-weight:600; }
+        .drag-handle { opacity:0;transition:opacity 0.15s;color:#C0BEB8;cursor:grab;display:flex;align-items:center;padding:0 8px 0 0;font-size:14px;flex-shrink:0;user-select:none; }
+        .drag-handle:active { cursor:grabbing; }
+        .event-row:hover .drag-handle { opacity:1; }
+        .drag-fixed-icon { color:#DDDCDA;padding:0 8px 0 0;font-size:12px;flex-shrink:0;display:flex;align-items:center; }
+        .event-row.dragging { background:#F0EFEB !important;box-shadow:0 8px 24px rgba(0,0,0,0.10);border-radius:10px;transform:none !important; }
       `}</style>
 
       {/* Header */}
@@ -234,64 +249,99 @@ export default function ScheduleDashboard() {
           </div>
 
           {/* Event list */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {events.map((e, i) => {
-              const cfg = PRIORITY_CONFIG[e.priority];
-              const isDone = timeToMinutes(e.end_time) < now;
-              const isActive = timeToMinutes(e.start_time) <= now && !isDone;
-              const isSel = selected === e.task_id;
+          <DragDropContext onDragEnd={onDragEnd}>
+            <Droppable droppableId="schedule-list">
+              {(provided) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  style={{ display: "flex", flexDirection: "column", gap: 2 }}
+                >
+                  {events.map((e, i) => {
+                    const cfg = PRIORITY_CONFIG[e.priority];
+                    const isDone = timeToMinutes(e.end_time) < now;
+                    const isActive = timeToMinutes(e.start_time) <= now && !isDone;
+                    const isSel = selected === e.task_id;
 
-              return (
-                <div key={e.task_id} className={`event-row${isSel ? " selected" : ""}`}
-                  onClick={() => setSelected(isSel ? null : e.task_id)}
-                  style={{ display: "flex", alignItems: "stretch", gap: 0, borderRadius: 10, padding: "10px 14px", background: isSel ? "#F0EFEB" : "transparent", opacity: isDone ? 0.45 : 1 }}>
+                    return (
+                      <Draggable
+                        key={e.task_id}
+                        draggableId={e.task_id}
+                        index={i}
+                        isDragDisabled={e.is_fixed}
+                      >
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className={`event-row${isSel ? " selected" : ""}${snapshot.isDragging ? " dragging" : ""}`}
+                            onClick={() => setSelected(isSel ? null : e.task_id)}
+                            style={{
+                              display: "flex", alignItems: "stretch", gap: 0,
+                              borderRadius: 10, padding: "10px 14px",
+                              background: snapshot.isDragging ? "#F0EFEB" : isSel ? "#F0EFEB" : "transparent",
+                              opacity: isDone ? 0.45 : 1,
+                              ...provided.draggableProps.style,
+                            }}
+                          >
+                            {/* Drag handle */}
+                            {e.is_fixed
+                              ? <div className="drag-fixed-icon">🔒</div>
+                              : <div className="drag-handle" {...provided.dragHandleProps} onClick={ev => ev.stopPropagation()}>⠿</div>
+                            }
 
-                  {/* Time col */}
-                  <div style={{ width: 80, flexShrink: 0, paddingRight: 14 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: "#2D2D2B", fontVariantNumeric: "tabular-nums" }}>{e.start_time}</div>
-                    <div style={{ fontSize: 11, color: "#B0AFA8", marginTop: 1 }}>{e.end_time}</div>
-                  </div>
+                            {/* Time col */}
+                            <div style={{ width: 80, flexShrink: 0, paddingRight: 14 }}>
+                              <div style={{ fontSize: 13, fontWeight: 500, color: "#2D2D2B", fontVariantNumeric: "tabular-nums" }}>{e.start_time}</div>
+                              <div style={{ fontSize: 11, color: "#B0AFA8", marginTop: 1 }}>{e.end_time}</div>
+                            </div>
 
-                  {/* Color bar */}
-                  <div style={{ width: 3, borderRadius: 2, background: isActive ? cfg.color : isDone ? "#DDDCDA" : cfg.color, opacity: isDone ? 0.5 : 1, flexShrink: 0, marginRight: 12, alignSelf: "stretch" }} />
+                            {/* Color bar */}
+                            <div style={{ width: 3, borderRadius: 2, background: isActive ? cfg.color : isDone ? "#DDDCDA" : cfg.color, opacity: isDone ? 0.5 : 1, flexShrink: 0, marginRight: 12, alignSelf: "stretch" }} />
 
-                  {/* Content */}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 14, fontWeight: isActive ? 600 : 500, color: isDone ? "#B0AFA8" : "#2D2D2B" }}>
-                        {isDone ? "✓ " : ""}{e.task_name}
-                      </span>
-                      {e.is_fixed && <span style={{ fontSize: 10, background: "#FEF3C7", color: "#92400E", padding: "1px 6px", borderRadius: 4, fontWeight: 600 }}>고정</span>}
-                    </div>
-                    <div style={{ display: "flex", gap: 4, marginTop: 5, flexWrap: "wrap" }}>
-                      {e.tags.map(t => {
-                        const tc = TAG_COLORS[t] || { bg: "#F3F4F6", color: "#6B7280" };
-                        return <span key={t} className="tag-pill" style={{ background: tc.bg, color: tc.color }}>{t}</span>;
-                      })}
-                      <span style={{ fontSize: 11, color: cfg.color, fontWeight: 500 }}>{cfg.label}</span>
-                    </div>
-                    {isSel && e.notes && (
-                      <div className="fade-in" style={{ marginTop: 8, fontSize: 12, color: "#9CA3AF", padding: "6px 10px", background: "#F5F4F0", borderRadius: 6 }}>
-                        {e.notes}
-                      </div>
-                    )}
-                  </div>
+                            {/* Content */}
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontSize: 14, fontWeight: isActive ? 600 : 500, color: isDone ? "#B0AFA8" : "#2D2D2B" }}>
+                                  {isDone ? "✓ " : ""}{e.task_name}
+                                </span>
+                                {e.is_fixed && <span style={{ fontSize: 10, background: "#FEF3C7", color: "#92400E", padding: "1px 6px", borderRadius: 4, fontWeight: 600 }}>고정</span>}
+                              </div>
+                              <div style={{ display: "flex", gap: 4, marginTop: 5, flexWrap: "wrap" }}>
+                                {e.tags.map(t => {
+                                  const tc = TAG_COLORS[t] || { bg: "#F3F4F6", color: "#6B7280" };
+                                  return <span key={t} className="tag-pill" style={{ background: tc.bg, color: tc.color }}>{t}</span>;
+                                })}
+                                <span style={{ fontSize: 11, color: cfg.color, fontWeight: 500 }}>{cfg.label}</span>
+                              </div>
+                              {isSel && e.notes && (
+                                <div className="fade-in" style={{ marginTop: 8, fontSize: 12, color: "#9CA3AF", padding: "6px 10px", background: "#F5F4F0", borderRadius: 6 }}>
+                                  {e.notes}
+                                </div>
+                              )}
+                            </div>
 
-                  {/* Duration + Delete */}
-                  <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, paddingLeft: 12 }}>
-                    <div style={{ fontSize: 11, color: "#C0BEB8", marginTop: 2 }}>
-                      {timeToMinutes(e.end_time) - timeToMinutes(e.start_time)}분
-                    </div>
-                    {!e.is_fixed && (
-                      <button className="delete-btn" onClick={ev => { ev.stopPropagation(); handleDelete(e.task_id); }} title="삭제">
-                        ×
-                      </button>
-                    )}
-                  </div>
+                            {/* Duration + Delete */}
+                            <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, paddingLeft: 12 }}>
+                              <div style={{ fontSize: 11, color: "#C0BEB8", marginTop: 2 }}>
+                                {timeToMinutes(e.end_time) - timeToMinutes(e.start_time)}분
+                              </div>
+                              {!e.is_fixed && (
+                                <button className="delete-btn" onClick={ev => { ev.stopPropagation(); handleDelete(e.task_id); }} title="삭제">
+                                  ×
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </Draggable>
+                    );
+                  })}
+                  {provided.placeholder}
                 </div>
-              );
-            })}
-          </div>
+              )}
+            </Droppable>
+          </DragDropContext>
         </div>
 
         {/* Right Panel */}
