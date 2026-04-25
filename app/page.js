@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import supabase from "../lib/supabase";
+import supabase, { isSupabaseConfigured } from "../lib/supabase";
 
 const PRIORITY_CONFIG = {
   urgent: { label: "긴급", color: "#E8543A", bg: "#FEF0EC", dot: "#E8543A" },
@@ -122,6 +122,7 @@ export default function ScheduleDashboard() {
 
   async function loadEventsForDate(dateStr) {
     setDbLoading(true);
+    if (!isSupabaseConfigured) { setDbLoading(false); return; }
     const { data, error } = await supabase
       .from("tasks")
       .select("*")
@@ -135,6 +136,7 @@ export default function ScheduleDashboard() {
   }
 
   async function loadEventsForRange(startDate, endDate) {
+    if (!isSupabaseConfigured) return;
     const { data, error } = await supabase
       .from("tasks")
       .select("*")
@@ -181,8 +183,10 @@ export default function ScheduleDashboard() {
       notes:      "",
       date:       form.date,
     };
-    const { error } = await supabase.from("tasks").insert(newEvent);
-    if (error) { setFormError("저장에 실패했어요. 다시 시도해주세요."); return; }
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from("tasks").insert(newEvent);
+      if (error) { setFormError("저장에 실패했어요. 다시 시도해주세요."); return; }
+    }
     const sort = (arr) => [...arr].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
     if (form.date === selectedDate) setEvents(prev => sort([...prev, newEvent]));
     setEventsByDate(prev => ({ ...prev, [form.date]: sort([...(prev[form.date] || []), newEvent]) }));
@@ -190,7 +194,7 @@ export default function ScheduleDashboard() {
   }
 
   async function handleDelete(taskId) {
-    await supabase.from("tasks").delete().eq("task_id", taskId);
+    if (isSupabaseConfigured) await supabase.from("tasks").delete().eq("task_id", taskId);
     setEvents(prev => prev.filter(e => e.task_id !== taskId));
     setEventsByDate(prev => {
       const next = { ...prev };
@@ -295,8 +299,13 @@ export default function ScheduleDashboard() {
               </button>
             )}
             <span className="db-badge">
-              {dbLoading ? <span className="spinner" /> : <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ADE80", display: "inline-block" }} />}
-              Supabase
+              {!isSupabaseConfigured
+                ? <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#E8543A", display: "inline-block" }} />
+                : dbLoading
+                  ? <span className="spinner" />
+                  : <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ADE80", display: "inline-block" }} />
+              }
+              {isSupabaseConfigured ? "Supabase" : "DB 미연결"}
             </span>
           </div>
         </div>
