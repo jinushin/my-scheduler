@@ -74,7 +74,7 @@ function getMonthGrid(year, month) {
 }
 
 const TODAY_STR  = toDateStr(new Date());
-const EMPTY_FORM = { task_name: "", date: TODAY_STR, start_time: "09:00", end_time: "10:00", priority: "medium" };
+const EMPTY_FORM = { task_name: "", date: TODAY_STR, start_time: "09:00", end_time: "10:00", priority: "medium", repeat_type: "none", repeat_days: [], repeat_end: "" };
 
 export default function ScheduleDashboard() {
   const [events, setEvents]             = useState([]);
@@ -163,13 +163,52 @@ export default function ScheduleDashboard() {
   function openModal()  { setForm({ ...EMPTY_FORM, date: selectedDate }); setFormError(""); setShowModal(true); }
   function closeModal() { setShowModal(false); setFormError(""); }
 
+  function generateDates(f) {
+    if (f.repeat_type === "none" || !f.repeat_end) return [f.date];
+    const start = new Date(f.date + "T00:00:00");
+    const end   = new Date(f.repeat_end + "T00:00:00");
+    const dates = [];
+    if (f.repeat_type === "daily") {
+      let cur = new Date(start);
+      while (cur <= end && dates.length < 366) {
+        dates.push(toDateStr(cur));
+        cur.setDate(cur.getDate() + 1);
+      }
+    } else if (f.repeat_type === "weekly") {
+      // repeat_days 인덱스 0=월~6=일 → JS getDay() 변환 (일=0,월=1...)
+      const jsDays = f.repeat_days.map(i => (i + 1) % 7);
+      let cur = new Date(start);
+      while (cur <= end && dates.length < 366) {
+        if (jsDays.includes(cur.getDay())) dates.push(toDateStr(cur));
+        cur.setDate(cur.getDate() + 1);
+      }
+    } else if (f.repeat_type === "monthly") {
+      let cur = new Date(start);
+      while (cur <= end && dates.length < 366) {
+        dates.push(toDateStr(cur));
+        cur.setMonth(cur.getMonth() + 1);
+      }
+    }
+    return dates;
+  }
+
   async function handleAdd() {
     if (!form.task_name.trim()) { setFormError("일정 이름을 입력해주세요."); return; }
     if (timeToMinutes(form.end_time) <= timeToMinutes(form.start_time)) {
       setFormError("종료 시간은 시작 시간보다 늦어야 해요."); return;
     }
-    const newEvent = {
-      task_id:    `evt-${Date.now()}`,
+    if (form.repeat_type !== "none") {
+      if (!form.repeat_end) { setFormError("반복 종료일을 설정해주세요."); return; }
+      if (form.repeat_end < form.date) { setFormError("종료일은 시작일 이후여야 해요."); return; }
+      if (form.repeat_type === "weekly" && form.repeat_days.length === 0) {
+        setFormError("반복할 요일을 하나 이상 선택해주세요."); return;
+      }
+    }
+    const dates = generateDates(form);
+    if (dates.length > 365) { setFormError("반복 횟수가 너무 많아요. 종료일을 앞당겨주세요. (최대 365회)"); return; }
+    const base = Date.now();
+    const newEvents = dates.map((date, idx) => ({
+      task_id:    `evt-${base}-${idx}`,
       task_name:  form.task_name.trim(),
       start_time: form.start_time,
       end_time:   form.end_time,
@@ -177,15 +216,19 @@ export default function ScheduleDashboard() {
       is_fixed:   false,
       tags:       [],
       notes:      "",
-      date:       form.date,
-    };
+      date,
+    }));
     if (isSupabaseConfigured) {
-      const { error } = await supabase.from("tasks").insert(newEvent);
+      const { error } = await supabase.from("tasks").insert(newEvents);
       if (error) { setFormError("저장에 실패했어요. 다시 시도해주세요."); return; }
     }
     const sort = (arr) => [...arr].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
-    if (form.date === selectedDate) setEvents(prev => sort([...prev, newEvent]));
-    setEventsByDate(prev => ({ ...prev, [form.date]: sort([...(prev[form.date] || []), newEvent]) }));
+    setEvents(prev => sort([...prev, ...newEvents.filter(e => e.date === selectedDate)]));
+    setEventsByDate(prev => {
+      const next = { ...prev };
+      newEvents.forEach(e => { next[e.date] = sort([...(next[e.date] || []), e]); });
+      return next;
+    });
     closeModal();
   }
 
@@ -246,7 +289,13 @@ export default function ScheduleDashboard() {
         .fade-in { animation: fadeIn 0.4s ease; }
         @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
         .modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:100;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s ease; }
-        .modal-box { background:#FAFAF8;border-radius:20px;padding:28px;width:420px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,0.18);animation:fadeIn 0.25s ease; }
+        .modal-box { background:#FAFAF8;border-radius:20px;padding:28px;width:420px;max-width:92vw;max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;box-shadow:0 20px 60px rgba(0,0,0,0.18);animation:fadeIn 0.25s ease; }
+        .repeat-btn { padding:7px 13px;border-radius:8px;border:1.5px solid #EDECEA;background:transparent;color:#4A4A48;font-size:13px;font-family:inherit;cursor:pointer;transition:all 0.15s; }
+        .repeat-btn.active { border-color:#7C5FF0;background:#F0ECFE;color:#7C5FF0;font-weight:600; }
+        .repeat-btn:hover:not(.active) { border-color:#C0BEB8; }
+        .day-btn { width:38px;height:38px;border-radius:50%;border:1.5px solid #EDECEA;background:transparent;color:#4A4A48;font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;transition:all 0.15s; }
+        .day-btn.active { border-color:#7C5FF0;background:#7C5FF0;color:#FAFAF8; }
+        .day-btn:hover:not(.active) { border-color:#C0BEB8; }
         .field-label { font-size:11px;font-weight:600;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px; }
         .field-input { width:100%;padding:10px 12px;border:1.5px solid #EDECEA;border-radius:10px;font-size:14px;font-family:inherit;color:#2D2D2B;background:#FFFFFF;outline:none;transition:border-color 0.15s; }
         .field-input:focus { border-color:#7C5FF0; }
@@ -757,6 +806,57 @@ export default function ScheduleDashboard() {
                   ))}
                 </div>
               </div>
+              {/* 반복 설정 */}
+              <div>
+                <div className="field-label">반복</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {[["none","반복 안함"], ["daily","매일"], ["weekly","매주"], ["monthly","매월"]].map(([v, label]) => (
+                    <button key={v} type="button"
+                      className={`repeat-btn${form.repeat_type === v ? " active" : ""}`}
+                      onClick={() => setForm(f => ({ ...f, repeat_type: v, repeat_days: [], repeat_end: v === "none" ? "" : f.repeat_end }))}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 요일 선택 (매주) */}
+              {form.repeat_type === "weekly" && (
+                <div className="fade-in">
+                  <div className="field-label">반복 요일</div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {DAY_NAMES.map((d, i) => (
+                      <button key={i} type="button"
+                        className={`day-btn${form.repeat_days.includes(i) ? " active" : ""}`}
+                        onClick={() => {
+                          const days = form.repeat_days.includes(i)
+                            ? form.repeat_days.filter(x => x !== i)
+                            : [...form.repeat_days, i];
+                          setForm(f => ({ ...f, repeat_days: days }));
+                        }}>{d}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 반복 종료일 */}
+              {form.repeat_type !== "none" && (
+                <div className="fade-in">
+                  <div className="field-label">반복 종료일</div>
+                  <input className="field-input" type="date" value={form.repeat_end}
+                    min={form.date}
+                    onChange={e => setForm(f => ({ ...f, repeat_end: e.target.value }))} />
+                  {form.repeat_end && (() => {
+                    const cnt = generateDates(form).length;
+                    return cnt > 0 ? (
+                      <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 5 }}>
+                        총 <strong style={{ color: "#7C5FF0" }}>{cnt}개</strong> 일정이 생성돼요
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+              )}
+
               {formError && (
                 <div style={{ fontSize: 12, color: "#E8543A", padding: "8px 12px", background: "#FEF0EC", borderRadius: 8 }}>{formError}</div>
               )}
@@ -765,7 +865,7 @@ export default function ScheduleDashboard() {
                   취소
                 </button>
                 <button onClick={handleAdd} style={{ flex: 2, padding: "12px", borderRadius: 10, border: "none", background: "#2D2D2B", color: "#FAFAF8", fontSize: 14, fontWeight: 600, fontFamily: "inherit", cursor: "pointer" }}>
-                  추가하기
+                  {form.repeat_type !== "none" && form.repeat_end ? `반복 추가 (${generateDates(form).length}개)` : "추가하기"}
                 </button>
               </div>
             </div>
