@@ -132,7 +132,7 @@ export default function ScheduleDashboard() {
   async function handleGoogleLogin() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: "https://my-scheduler-taupe.vercel.app" },
+      options: { redirectTo: `${typeof window !== "undefined" ? window.location.origin : "https://my-scheduler-taupe.vercel.app"}/auth/callback` },
     });
   }
 
