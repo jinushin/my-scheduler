@@ -323,7 +323,29 @@ export default function ScheduleDashboard() {
     setEvents(reordered);
   }
 
-  async function handleAI() {
+  const [listeningFor, setListeningFor] = useState(null); // 'ai' | 'task'
+
+  function startVoice(target) {
+    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
+      alert("이 브라우저는 음성인식을 지원하지 않아요. Chrome을 사용해주세요.");
+      return;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = "ko-KR";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    setListeningFor(target);
+    recognition.start();
+    recognition.onresult = (event) => {
+      const text = event.results[0][0].transcript;
+      if (target === "ai") setInput(prev => prev + text);
+      if (target === "task") setForm(f => ({ ...f, task_name: f.task_name + text }));
+      setListeningFor(null);
+    };
+    recognition.onerror = () => setListeningFor(null);
+    recognition.onend = () => setListeningFor(null);
+  }
     if (!input.trim()) return;
     setAiLoading(true); setAiMsg("");
     try {
@@ -714,11 +736,20 @@ export default function ScheduleDashboard() {
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ADE80" }} className="pulse" />
                 <span style={{ fontSize: 12, color: "#9CA3AF", fontWeight: 500 }}>AI 일정 조정</span>
               </div>
-              <div style={{ background: "#3A3A38", borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
+              <div style={{ background: "#3A3A38", borderRadius: 10, padding: "12px 14px", marginBottom: 10, position: "relative" }}>
                 <textarea className="ai-input" value={input} onChange={e => setInput(e.target.value)}
                   placeholder={"\"내일 오후 2시에 도서관 공부 2시간 추가해줘\"\n\"오늘 회의를 30분 당겨줘\""}
                   rows={3} style={{ resize: "none", lineHeight: 1.6, color: "#FAFAF8" }}
                   onKeyDown={e => { if (e.key === "Enter" && e.metaKey) handleAI(); }} />
+                <button onClick={() => startVoice("ai")} style={{
+                  position: "absolute", bottom: 10, right: 10,
+                  background: listeningFor === "ai" ? "#E8543A" : "#4A4A48",
+                  border: "none", borderRadius: "50%", width: 28, height: 28,
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 14, transition: "all 0.15s",
+                }}>
+                  {listeningFor === "ai" ? "⏹" : "🎤"}
+                </button>
               </div>
               <button className="send-btn" onClick={handleAI} disabled={aiLoading}
                 style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #4A4A48", background: "transparent", color: "#FAFAF8", fontSize: 13, fontWeight: 500, fontFamily: "inherit" }}>
@@ -892,9 +923,21 @@ export default function ScheduleDashboard() {
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
                 <div className="field-label">일정 이름</div>
-                <input className="field-input" placeholder="예) 알고리즘 스터디" value={form.task_name}
-                  onChange={e => setForm(f => ({ ...f, task_name: e.target.value }))}
-                  onKeyDown={e => { if (e.key === "Enter") handleAdd(); }} autoFocus />
+                <div style={{ position: "relative" }}>
+                  <input className="field-input" placeholder="예) 알고리즘 스터디" value={form.task_name}
+                    onChange={e => setForm(f => ({ ...f, task_name: e.target.value }))}
+                    onKeyDown={e => { if (e.key === "Enter") handleAdd(); }} autoFocus
+                    style={{ paddingRight: 40 }} />
+                  <button onClick={() => startVoice("task")} style={{
+                    position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+                    background: listeningFor === "task" ? "#E8543A" : "#EDECEA",
+                    border: "none", borderRadius: "50%", width: 28, height: 28,
+                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 14, transition: "all 0.15s",
+                  }}>
+                    {listeningFor === "task" ? "⏹" : "🎤"}
+                  </button>
+                </div>
               </div>
               <div>
                 <div className="field-label">날짜</div>

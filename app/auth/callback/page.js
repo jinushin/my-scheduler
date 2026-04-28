@@ -7,17 +7,13 @@ export default function AuthCallback() {
   const router = useRouter();
 
   useEffect(() => {
-    const code = new URLSearchParams(window.location.search).get("code");
-    
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code).then(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
         router.replace("/");
-      });
-    } else {
-      supabase.auth.getSession().then(({ data }) => {
+      } else {
         router.replace("/");
-      });
-    }
+      }
+    });
   }, []);
 
   return (
