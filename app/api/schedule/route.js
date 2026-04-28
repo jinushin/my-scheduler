@@ -20,12 +20,12 @@ export async function POST(request) {
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
-  const { data, error } = await supabase.from("tasks").insert(rows).select();
+  const { error } = await supabase.from("tasks").insert(rows);
 
   if (error) {
     console.error("[API /api/schedule] Supabase error:", error);
     return Response.json({ error: error.message, code: error.code }, { status: 500 });
   }
 
-  return Response.json(data, { status: 201 });
+  return Response.json(rows, { status: 201 });
 }
