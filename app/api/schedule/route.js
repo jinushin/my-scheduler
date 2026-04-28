@@ -1,11 +1,7 @@
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+const supabaseUrl = "https://fyfahjuextamljhrkoeo.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5ZmFoanVleHRhbWxqaHJrb2VvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMTA1NjYsImV4cCI6MjA5MjY4NjU2Nn0.p-6f9_Xgb4pDG79GiuHBRyCqkNTXs7D_ReVKJHEeNgI";
 
 export async function POST(request) {
-  if (!supabaseUrl.startsWith("https://") || supabaseKey.length <= 10) {
-    return Response.json({ error: "Supabase not configured" }, { status: 503 });
-  }
-
   let rows;
   try {
     rows = await request.json();
@@ -23,6 +19,7 @@ export async function POST(request) {
       "Content-Type": "application/json",
       "apikey": supabaseKey,
       "Authorization": `Bearer ${supabaseKey}`,
+      "Prefer": "return=representation",
     },
     body: JSON.stringify(rows),
   });
@@ -33,5 +30,6 @@ export async function POST(request) {
     return Response.json({ error: err.message ?? "Insert failed", code: err.code }, { status: res.status });
   }
 
-  return Response.json(rows, { status: 201 });
+  const data = await res.json();
+  return Response.json(data, { status: 201 });
 }
