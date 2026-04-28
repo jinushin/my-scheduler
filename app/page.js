@@ -222,9 +222,18 @@ export default function ScheduleDashboard() {
     }));
     let newEvents;
     if (isSupabaseConfigured) {
-      const { data, error } = await supabase.from("tasks").insert(rows).select();
-      if (error) { console.error("[Supabase insert error]", error); setFormError("저장에 실패했어요. 다시 시도해주세요."); return; }
-      newEvents = data;
+      const res = await fetch("/api/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(rows),
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        console.error("[POST /api/schedule error]", payload);
+        setFormError("저장에 실패했어요. 다시 시도해주세요.");
+        return;
+      }
+      newEvents = payload;
     } else {
       newEvents = rows;
     }
