@@ -77,6 +77,8 @@ const TODAY_STR  = toDateStr(new Date());
 const EMPTY_FORM = { task_name: "", date: TODAY_STR, start_time: "09:00", end_time: "10:00", priority: "medium", repeat_type: "none", repeat_days: [], repeat_end: "" };
 
 export default function ScheduleDashboard() {
+  const [user, setUser]                 = useState(null);
+  const [authLoading, setAuthLoading]   = useState(true);
   const [events, setEvents]             = useState([]);
   const [eventsByDate, setEventsByDate] = useState({});
   const [dbLoading, setDbLoading]       = useState(true);
@@ -100,14 +102,41 @@ export default function ScheduleDashboard() {
   const current       = events.find(e => timeToMinutes(e.start_time) <= now && timeToMinutes(e.end_time) > now);
   const completedPct  = events.length > 0 ? (completed / events.length) * 100 : 0;
 
-  useEffect(() => { loadEventsForDate(selectedDate); }, [selectedDate]);
+  // ── Auth ──
+  useEffect(() => {
+    if (!isSupabaseConfigured) { setAuthLoading(false); return; }
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(data.session?.user ?? null);
+      setAuthLoading(false);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  async function handleGoogleLogin() {
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    setUser(null);
+    setEvents([]);
+    setEventsByDate({});
+  }
+
+  useEffect(() => { loadEventsForDate(selectedDate); }, [selectedDate, user]);
 
   useEffect(() => {
     if (view === "week") {
       const days = getWeekDays();
       loadEventsForRange(toDateStr(days[0]), toDateStr(days[6]));
     }
-  }, [view]);
+  }, [view, user]);
 
   useEffect(() => {
     if (view === "month") {
@@ -116,15 +145,16 @@ export default function ScheduleDashboard() {
         toDateStr(new Date(calYear, calMonth + 1, 0))
       );
     }
-  }, [view, calYear, calMonth]);
+  }, [view, calYear, calMonth, user]);
 
   async function loadEventsForDate(dateStr) {
     setDbLoading(true);
-    if (!isSupabaseConfigured) { setDbLoading(false); return; }
+    if (!isSupabaseConfigured || !user) { setDbLoading(false); return; }
     const { data, error } = await supabase
       .from("tasks")
       .select("*")
       .eq("date", dateStr)
+      .eq("user_id", user.id)
       .order("start_time", { ascending: true });
     if (error) console.error("[Supabase loadEventsForDate error]", error);
     if (!error && data) {
@@ -135,12 +165,13 @@ export default function ScheduleDashboard() {
   }
 
   async function loadEventsForRange(startDate, endDate) {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || !user) return;
     const { data, error } = await supabase
       .from("tasks")
       .select("*")
       .gte("date", startDate)
       .lte("date", endDate)
+      .eq("user_id", user.id)
       .order("start_time", { ascending: true });
     if (error) console.error("[Supabase loadEventsForRange error]", error);
     if (!error && data) {
@@ -177,7 +208,6 @@ export default function ScheduleDashboard() {
         cur.setDate(cur.getDate() + 1);
       }
     } else if (f.repeat_type === "weekly") {
-      // repeat_days 인덱스 0=월~6=일 → JS getDay() 변환 (일=0,월=1...)
       const jsDays = f.repeat_days.map(i => (i + 1) % 7);
       let cur = new Date(start);
       while (cur <= end && dates.length < 366) {
@@ -219,6 +249,7 @@ export default function ScheduleDashboard() {
       tags:       [],
       notes:      "",
       date,
+      user_id:    user?.id ?? null,
     }));
     let newEvents;
     if (isSupabaseConfigured) {
@@ -286,6 +317,53 @@ export default function ScheduleDashboard() {
     setAiLoading(false); setInput("");
   }
 
+  // ── 로그인 화면 ──
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#FAFAF8", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 24, height: 24, border: "2px solid #EDECEA", borderTop: "2px solid #2D2D2B", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#FAFAF8", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', 'Pretendard', sans-serif" }}>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap');
+          * { box-sizing: border-box; } body { margin: 0; }
+          @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+          @keyframes spin { to { transform: rotate(360deg); } }
+          .login-btn { transition: all 0.15s; cursor: pointer; }
+          .login-btn:hover { background: #3A3A38 !important; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+          .login-btn:active { transform: scale(0.97); }
+        `}</style>
+        <div style={{ animation: "fadeIn 0.4s ease", textAlign: "center", padding: "48px 32px", background: "#FFFFFF", borderRadius: 24, border: "1px solid #EDECEA", boxShadow: "0 8px 40px rgba(0,0,0,0.08)", maxWidth: 400, width: "90vw" }}>
+          <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 32, color: "#2D2D2B", marginBottom: 8 }}>
+            오늘의 스케줄
+          </div>
+          <div style={{ fontSize: 14, color: "#B0AFA8", marginBottom: 36, lineHeight: 1.6 }}>
+            구글 계정으로 로그인하고<br />나만의 일정을 관리해보세요
+          </div>
+          <button className="login-btn" onClick={handleGoogleLogin} style={{
+            width: "100%", padding: "14px 20px", borderRadius: 12, border: "none",
+            background: "#2D2D2B", color: "#FAFAF8", fontSize: 15, fontWeight: 600,
+            fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+          }}>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+              <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.859-3.048.859-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/>
+              <path d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" fill="#FBBC05"/>
+              <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.962L3.964 6.294C4.672 4.167 6.656 3.58 9 3.58z" fill="#EA4335"/>
+            </svg>
+            Google로 로그인
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: "100vh", background: "#FAFAF8", fontFamily: "'DM Sans', 'Pretendard', sans-serif" }}>
       <style>{`
@@ -346,8 +424,9 @@ export default function ScheduleDashboard() {
         @keyframes spin { to{transform:rotate(360deg)} }
         .spinner { width:11px;height:11px;border:1.5px solid #4A4A48;border-top-color:#9CA3AF;border-radius:50%;animation:spin 0.7s linear infinite; }
         .empty-state { text-align:center;padding:48px 0;color:#B0AFA8;font-size:14px; }
+        .logout-btn { transition:all 0.15s;cursor:pointer; }
+        .logout-btn:hover { background:#3A3A38 !important; }
 
-        /* ── Responsive layout ── */
         .header-wrap { background:#2D2D2B;padding:28px 32px 24px;display:flex;align-items:flex-end;justify-content:space-between; }
         .header-title { font-family:'DM Serif Display',serif;font-size:28px;color:#FAFAF8;letter-spacing:-0.5px;line-height:1.2; }
         .header-meta { font-size:13px;color:#9CA3AF;margin-top:4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap; }
@@ -439,6 +518,18 @@ export default function ScheduleDashboard() {
             background: "#3A3A38", color: "#FAFAF8", fontSize: 22, lineHeight: 1,
             display: "flex", alignItems: "center", justifyContent: "center", marginLeft: 4,
           }}>+</button>
+          {/* 사용자 아바타 + 로그아웃 */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8 }}>
+            {user.user_metadata?.avatar_url && (
+              <img src={user.user_metadata.avatar_url} alt="avatar"
+                style={{ width: 32, height: 32, borderRadius: "50%", border: "2px solid #4A4A48", objectFit: "cover" }} />
+            )}
+            <button className="logout-btn" onClick={handleLogout} style={{
+              background: "#3A3A38", border: "none", borderRadius: 8,
+              color: "#9CA3AF", fontSize: 11, padding: "6px 10px",
+              fontFamily: "inherit", cursor: "pointer",
+            }}>로그아웃</button>
+          </div>
         </div>
       </div>
 
@@ -464,11 +555,7 @@ export default function ScheduleDashboard() {
       {/* ── Today View ── */}
       {view === "today" && (
         <div className="view-enter today-grid">
-
-          {/* Left */}
           <div className="today-left">
-
-            {/* Current / Next card */}
             {!dbLoading && selectedDate === TODAY_STR && (current || upcoming) && (
               <div className="fade-in" style={{ marginBottom: 20, padding: "16px 20px", background: current ? "#2D2D2B" : "#F5F4F0", borderRadius: 14, display: "flex", alignItems: "center", gap: 16 }}>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: current ? "#4ADE80" : "#9CA3AF", flexShrink: 0 }} className={current ? "pulse" : ""} />
@@ -482,7 +569,6 @@ export default function ScheduleDashboard() {
               </div>
             )}
 
-            {/* Mini timeline bar */}
             {!dbLoading && events.length > 0 && (
               <div style={{ marginBottom: 20, position: "relative" }}>
                 <div className="timeline-labels">
@@ -508,7 +594,6 @@ export default function ScheduleDashboard() {
               </div>
             )}
 
-            {/* Loading skeleton */}
             {dbLoading && (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {[90, 75, 85, 70, 80].map((w, i) => (
@@ -517,7 +602,6 @@ export default function ScheduleDashboard() {
               </div>
             )}
 
-            {/* Empty state */}
             {!dbLoading && events.length === 0 && (
               <div className="empty-state">
                 일정이 없어요.<br />
@@ -525,7 +609,6 @@ export default function ScheduleDashboard() {
               </div>
             )}
 
-            {/* Event list */}
             {!dbLoading && events.length > 0 && (
               <DragDropContext onDragEnd={onDragEnd}>
                 <Droppable droppableId="schedule-list">
@@ -603,8 +686,6 @@ export default function ScheduleDashboard() {
 
           {/* Right Panel */}
           <div className="today-right">
-
-            {/* AI Input */}
             <div style={{ background: "#2D2D2B", borderRadius: 16, padding: "20px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ADE80" }} className="pulse" />
@@ -627,7 +708,6 @@ export default function ScheduleDashboard() {
               )}
             </div>
 
-            {/* Priority breakdown */}
             <div style={{ background: "#FFFFFF", border: "1px solid #EDECEA", borderRadius: 16, padding: "18px 20px" }}>
               <div style={{ fontSize: 12, fontWeight: 500, color: "#B0AFA8", marginBottom: 14 }}>우선순위 분포</div>
               {Object.entries(PRIORITY_CONFIG).map(([key, cfg]) => {
@@ -645,7 +725,6 @@ export default function ScheduleDashboard() {
               })}
             </div>
 
-            {/* Stats */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               {[
                 { label: "총 일정 시간", val: `${events.reduce((a,e) => a + timeToMinutes(e.end_time) - timeToMinutes(e.start_time), 0)}분` },
@@ -660,7 +739,6 @@ export default function ScheduleDashboard() {
               ))}
             </div>
 
-            {/* Fixed events note */}
             {events.some(e => e.is_fixed) && (
               <div style={{ background: "#FEF3C7", border: "1px solid #FDE68A", borderRadius: 12, padding: "12px 16px", display: "flex", gap: 10, alignItems: "flex-start" }}>
                 <span style={{ fontSize: 14 }}>🔒</span>
@@ -824,7 +902,6 @@ export default function ScheduleDashboard() {
                   ))}
                 </div>
               </div>
-              {/* 반복 설정 */}
               <div>
                 <div className="field-label">반복</div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -838,7 +915,6 @@ export default function ScheduleDashboard() {
                 </div>
               </div>
 
-              {/* 요일 선택 (매주) */}
               {form.repeat_type === "weekly" && (
                 <div className="fade-in">
                   <div className="field-label">반복 요일</div>
@@ -857,7 +933,6 @@ export default function ScheduleDashboard() {
                 </div>
               )}
 
-              {/* 반복 종료일 */}
               {form.repeat_type !== "none" && (
                 <div className="fade-in">
                   <div className="field-label">반복 종료일</div>
