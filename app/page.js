@@ -326,8 +326,17 @@ export default function ScheduleDashboard() {
   async function handleAI() {
     if (!input.trim()) return;
     setAiLoading(true); setAiMsg("");
-    await new Promise(r => setTimeout(r, 1400));
-    setAiMsg(`"${input}" 일정을 분석했어요. 오후 5시 이후 빈 슬롯에 배치했어요.`);
+    try {
+      const res = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: input, events }),
+      });
+      const data = await res.json();
+      setAiMsg(data.message ?? "응답을 받지 못했어요.");
+    } catch {
+      setAiMsg("오류가 발생했어요. 다시 시도해주세요.");
+    }
     setAiLoading(false); setInput("");
   }
 
