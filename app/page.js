@@ -206,9 +206,7 @@ export default function ScheduleDashboard() {
     }
     const dates = generateDates(form);
     if (dates.length > 365) { setFormError("반복 횟수가 너무 많아요. 종료일을 앞당겨주세요. (최대 365회)"); return; }
-    const base = Date.now();
-    const newEvents = dates.map((date, idx) => ({
-      task_id:    `evt-${base}-${idx}`,
+    const rows = dates.map((date) => ({
       task_name:  form.task_name.trim(),
       start_time: form.start_time,
       end_time:   form.end_time,
@@ -218,9 +216,14 @@ export default function ScheduleDashboard() {
       notes:      "",
       date,
     }));
+    let newEvents;
     if (isSupabaseConfigured) {
-      const { error } = await supabase.from("tasks").insert(newEvents);
+      const { data, error } = await supabase.from("tasks").insert(rows).select();
       if (error) { setFormError("저장에 실패했어요. 다시 시도해주세요."); return; }
+      newEvents = data;
+    } else {
+      const base = Date.now();
+      newEvents = rows.map((row, idx) => ({ ...row, task_id: `evt-${base}-${idx}` }));
     }
     const sort = (arr) => [...arr].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
     setEvents(prev => sort([...prev, ...newEvents.filter(e => e.date === selectedDate)]));
