@@ -1,5 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
-
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
@@ -19,12 +17,20 @@ export async function POST(request) {
     return Response.json({ error: "rows must be a non-empty array" }, { status: 400 });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
-  const { error } = await supabase.from("tasks").insert(rows);
+  const res = await fetch(`${supabaseUrl}/rest/v1/tasks`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": supabaseKey,
+      "Authorization": `Bearer ${supabaseKey}`,
+    },
+    body: JSON.stringify(rows),
+  });
 
-  if (error) {
-    console.error("[API /api/schedule] Supabase error:", error);
-    return Response.json({ error: error.message, code: error.code }, { status: 500 });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    console.error("[API /api/schedule] Supabase error:", err);
+    return Response.json({ error: err.message ?? "Insert failed", code: err.code }, { status: res.status });
   }
 
   return Response.json(rows, { status: 201 });
