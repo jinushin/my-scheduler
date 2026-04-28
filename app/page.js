@@ -105,10 +105,24 @@ export default function ScheduleDashboard() {
   // ── Auth ──
   useEffect(() => {
     if (!isSupabaseConfigured) { setAuthLoading(false); return; }
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null);
-      setAuthLoading(false);
-    });
+
+    const handleAuth = async () => {
+      if (window.location.hash && window.location.hash.includes("access_token")) {
+        const { data, error } = await supabase.auth.getSession();
+        if (!error && data.session) {
+          setUser(data.session.user);
+          window.history.replaceState(null, "", window.location.pathname);
+        }
+        setAuthLoading(false);
+      } else {
+        const { data } = await supabase.auth.getSession();
+        setUser(data.session?.user ?? null);
+        setAuthLoading(false);
+      }
+    };
+
+    handleAuth();
+
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
