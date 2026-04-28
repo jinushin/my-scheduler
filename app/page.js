@@ -126,6 +126,7 @@ export default function ScheduleDashboard() {
       .select("*")
       .eq("date", dateStr)
       .order("start_time", { ascending: true });
+    if (error) console.error("[Supabase loadEventsForDate error]", error);
     if (!error && data) {
       setEvents(data);
       setEventsByDate(prev => ({ ...prev, [dateStr]: data }));
@@ -141,6 +142,7 @@ export default function ScheduleDashboard() {
       .gte("date", startDate)
       .lte("date", endDate)
       .order("start_time", { ascending: true });
+    if (error) console.error("[Supabase loadEventsForRange error]", error);
     if (!error && data) {
       const byDate = {};
       data.forEach(row => {
@@ -206,7 +208,9 @@ export default function ScheduleDashboard() {
     }
     const dates = generateDates(form);
     if (dates.length > 365) { setFormError("반복 횟수가 너무 많아요. 종료일을 앞당겨주세요. (최대 365회)"); return; }
-    const rows = dates.map((date) => ({
+    const base = Date.now();
+    const rows = dates.map((date, idx) => ({
+      task_id:    `evt-${base}-${idx}`,
       task_name:  form.task_name.trim(),
       start_time: form.start_time,
       end_time:   form.end_time,
@@ -219,11 +223,10 @@ export default function ScheduleDashboard() {
     let newEvents;
     if (isSupabaseConfigured) {
       const { data, error } = await supabase.from("tasks").insert(rows).select();
-      if (error) { setFormError("저장에 실패했어요. 다시 시도해주세요."); return; }
+      if (error) { console.error("[Supabase insert error]", error); setFormError("저장에 실패했어요. 다시 시도해주세요."); return; }
       newEvents = data;
     } else {
-      const base = Date.now();
-      newEvents = rows.map((row, idx) => ({ ...row, task_id: `evt-${base}-${idx}` }));
+      newEvents = rows;
     }
     const sort = (arr) => [...arr].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
     setEvents(prev => sort([...prev, ...newEvents.filter(e => e.date === selectedDate)]));
@@ -236,7 +239,10 @@ export default function ScheduleDashboard() {
   }
 
   async function handleDelete(taskId) {
-    if (isSupabaseConfigured) await supabase.from("tasks").delete().eq("task_id", taskId);
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from("tasks").delete().eq("task_id", taskId);
+      if (error) console.error("[Supabase handleDelete error]", error);
+    }
     setEvents(prev => prev.filter(e => e.task_id !== taskId));
     setEventsByDate(prev => {
       const next = { ...prev };
