@@ -346,6 +346,8 @@ export default function ScheduleDashboard() {
     recognition.onerror = () => setListeningFor(null);
     recognition.onend = () => setListeningFor(null);
   }
+
+  async function handleAI() {
     if (!input.trim()) return;
     setAiLoading(true); setAiMsg("");
     try {
