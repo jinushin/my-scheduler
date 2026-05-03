@@ -358,6 +358,40 @@ export default function ScheduleDashboard() {
       });
       const data = await res.json();
       setAiMsg(data.message ?? "응답을 받지 못했어요.");
+
+      if (data.addEvents && data.addEvents.length > 0) {
+        const base = Date.now();
+        const rows = data.addEvents.map((e, idx) => ({
+          task_id:    `evt-${base}-${idx}`,
+          task_name:  e.task_name,
+          start_time: e.start_time,
+          end_time:   e.end_time,
+          priority:   e.priority || "medium",
+          is_fixed:   false,
+          tags:       [],
+          notes:      "",
+          date:       e.date,
+          user_id:    user?.id ?? null,
+        }));
+
+        if (isSupabaseConfigured) {
+          const postRes = await fetch("/api/schedule", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(rows),
+          });
+          if (postRes.ok) {
+            const newEvents = await postRes.json();
+            const sort = (arr) => [...arr].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
+            setEvents(prev => sort([...prev, ...newEvents.filter(e => e.date === selectedDate)]));
+            setEventsByDate(prev => {
+              const next = { ...prev };
+              newEvents.forEach(e => { next[e.date] = sort([...(next[e.date] || []), e]); });
+              return next;
+            });
+          }
+        }
+      }
     } catch {
       setAiMsg("오류가 발생했어요. 다시 시도해주세요.");
     }
